@@ -12,6 +12,8 @@ let board = []; // 15x15 数组
 let currentPlayer = 1; // 1: 黑棋, 2: 白棋
 let isGameOver = false;
 let pieces = []; // 存储棋子Mesh以便清理
+let gameMode = 'pve'; // 'pve' or 'pvp'
+let isComputerThinking = false;
 
 // Three.js 变量
 let scene, camera, renderer, controls;
@@ -74,6 +76,10 @@ function init() {
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('click', onMouseClick);
     document.getElementById('reset-btn').addEventListener('click', resetGame);
+    document.getElementById('mode-select').addEventListener('change', (e) => {
+        gameMode = e.target.value;
+        resetGame();
+    });
 
     // 初始化游戏数据
     resetGameData();
@@ -233,7 +239,7 @@ function onMouseMove(event) {
 }
 
 function onMouseClick(event) {
-    if (isGameOver) return;
+    if (isGameOver || isComputerThinking) return;
 
     // 忽略点击UI的情况，虽然CSS pointer-events处理了一部分，但这里最好也防一下
     if (event.target.closest('#info')) return;
@@ -281,6 +287,12 @@ function placePiece(col, row) {
         // 切换玩家
         currentPlayer = currentPlayer === 1 ? 2 : 1;
         updateUI();
+
+        // 如果是人机模式，且轮到白棋（AI），则触发AI落子
+        if (gameMode === 'pve' && currentPlayer === 2 && !isGameOver) {
+            isComputerThinking = true;
+            setTimeout(computerMove, 500); // 延迟一下，让体验更自然
+        }
     }
 }
 
@@ -325,4 +337,141 @@ function animate() {
     requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
+}
+
+// AI 逻辑
+function computerMove() {
+    if (isGameOver) return;
+
+    let bestScore = -Infinity;
+    let bestMoves = [];
+
+    // 遍历所有空位
+    for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+            if (board[r][c] === 0) {
+                // 评估该位置的分数
+                // AI是白棋(2)，玩家是黑棋(1)
+                // 进攻分：如果白棋下这
+                const attackScore = evaluatePoint(r, c, 2);
+                // 防守分：如果黑棋下这
+                const defenseScore = evaluatePoint(r, c, 1);
+
+                // 总分 = 进攻分 + 防守分
+                let score = attackScore + defenseScore;
+                
+                // 特殊情况处理，提高优先级
+                if (attackScore >= 100000) score = 200000; // 能赢必须赢
+                else if (defenseScore >= 100000) score = 150000; // 对方要赢必须堵
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMoves = [{r, c}];
+                } else if (score === bestScore) {
+                    bestMoves.push({r, c});
+                }
+            }
+        }
+    }
+
+    // 如果没有最佳移动（比如开局），下天元或者随机
+    if (bestMoves.length === 0) {
+        const center = Math.floor(BOARD_SIZE / 2);
+        if (board[center][center] === 0) {
+            placePiece(center, center);
+        } else {
+            // 随便找个空位
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (board[r][c] === 0) {
+                        placePiece(c, r);
+                        isComputerThinking = false;
+                        return;
+                    }
+                }
+            }
+        }
+    } else {
+        // 随机选择一个最高分的点
+        const move = bestMoves[Math.floor(Math.random() * bestMoves.length)];
+        placePiece(move.c, move.r);
+    }
+    
+    isComputerThinking = false;
+}
+
+function evaluatePoint(row, col, player) {
+    let score = 0;
+    // 四个方向：横、竖、左斜、右斜
+    const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
+
+    for (let [dx, dy] of directions) {
+        // 统计该方向上连续的棋子数和两端的空位数
+        let count = 1; // 当前点算一个
+        let blocked = 0;
+
+        // 正向
+        let i = 1;
+        while (true) {
+            const r = row + dy * i;
+            const c = col + dx * i;
+            if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) {
+                blocked++;
+                break;
+            }
+            if (board[r][c] === player) {
+                count++;
+            } else if (board[r][c] === 0) {
+                break;
+            } else {
+                blocked++;
+                break;
+            }
+            i++;
+        }
+
+        // 反向
+        i = 1;
+        while (true) {
+            const r = row - dy * i;
+            const c = col - dx * i;
+            if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) {
+                blocked++;
+                break;
+            }
+            if (board[r][c] === player) {
+                count++;
+            } else if (board[r][c] === 0) {
+                break;
+            } else {
+                blocked++;
+                break;
+            }
+            i++;
+        }
+
+        // 根据 count 和 blocked 评分
+        if (blocked === 2) {
+            if (count >= 5) score += 100000; // 即使被堵也是5连
+            else score += 0; // 两头堵死没意义
+        } else if (blocked === 1) {
+            if (count >= 5) score += 100000;
+            else if (count === 4) score += 10000; // 冲四
+            else if (count === 3) score += 1000;  // 冲三
+            else if (count === 2) score += 100;
+        } else { // blocked === 0
+            if (count >= 5) score += 100000;
+            else if (count === 4) score += 50000; // 活四
+            else if (count === 3) score += 10000; // 活三
+            else if (count === 2) score += 500;   // 活二
+            else if (count === 1) score += 10;
+        }
+    }
+    
+    // 额外加分：靠近中心
+    const center = BOARD_SIZE / 2;
+    const dist = Math.abs(row - center) + Math.abs(col - center);
+    score += (BOARD_SIZE - dist);
+
+    return score;
 }

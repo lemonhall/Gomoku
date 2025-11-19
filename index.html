@@ -17,6 +17,13 @@
 <body>
     <div id="info">
         <h1>3D 五子棋</h1>
+        <div>
+            <label for="mode-select">模式: </label>
+            <select id="mode-select">
+                <option value="pve">人机对战</option>
+                <option value="pvp">双人对战</option>
+            </select>
+        </div>
         <p>当前执子: <span id="current-player">黑棋</span></p>
         <button id="reset-btn">重新开始</button>
         <div id="message"></div>
