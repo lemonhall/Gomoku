@@ -1,0 +1,59 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: 'Microsoft YaHei', sans-serif;
+    background-color: #f0f0f0;
+}
+
+#info {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    pointer-events: auto; /* 确保UI可点击 */
+}
+
+h1 {
+    margin: 0 0 10px 0;
+    font-size: 24px;
+    color: #333;
+}
+
+p {
+    margin: 5px 0;
+    font-size: 16px;
+}
+
+#current-player {
+    font-weight: bold;
+    color: black;
+}
+
+#reset-btn {
+    margin-top: 10px;
+    padding: 8px 16px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+#reset-btn:hover {
+    background-color: #45a049;
+}
+
+#message {
+    margin-top: 10px;
+    font-weight: bold;
+    color: red;
+    min-height: 20px;
+}
+
+canvas {
+    display: block;
+}
